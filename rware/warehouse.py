@@ -1,8 +1,8 @@
 import logging
 
 from collections import defaultdict, OrderedDict
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 
 from rware.utils import MultiAgentActionSpace, MultiAgentObservationSpace
 
@@ -92,7 +92,6 @@ class Agent(Entity):
         Agent.counter += 1
         super().__init__(Agent.counter, x, y)
         self.dir = dir_
-        self.message = np.zeros(msg_bits)
         self.req_action: Optional[Action] = None
         self.carrying_shelf: Optional[Shelf] = None
         self.canceled_action = None
@@ -145,7 +144,7 @@ class Shelf(Entity):
 
 class Warehouse(gym.Env):
 
-    metadata = {"render.modes": ["human", "rgb_array"]}
+    metadata = {"render_modes": ["human", "rgb_array"]}
 
     def __init__(
         self,
@@ -425,9 +424,6 @@ class Warehouse(gym.Env):
                                                 {
                                                     "has_agent": spaces.MultiBinary(1),
                                                     "direction": spaces.Discrete(4),
-                                                    "local_message": spaces.MultiBinary(
-                                                        self.msg_bits
-                                                    ),
                                                     "has_shelf": spaces.MultiBinary(1),
                                                     "shelf_requested": spaces.MultiBinary(
                                                         1
@@ -598,8 +594,6 @@ class Warehouse(gym.Env):
                     direction = np.zeros(4)
                     direction[self.agents[id_agent - 1].dir.value] = 1.0
                     obs.write(direction)
-                    if self.msg_bits > 0:
-                        obs.write(self.agents[id_agent - 1].message)
                 if id_shelf == 0:
                     obs.skip(2)
                 else:
@@ -632,11 +626,9 @@ class Warehouse(gym.Env):
             if id_ == 0:
                 obs["sensors"][i]["has_agent"] = [0]
                 obs["sensors"][i]["direction"] = 0
-                obs["sensors"][i]["local_message"] = self.msg_bits * [0]
             else:
                 obs["sensors"][i]["has_agent"] = [1]
                 obs["sensors"][i]["direction"] = self.agents[id_ - 1].dir.value
-                obs["sensors"][i]["local_message"] = self.agents[id_ - 1].message
 
         # find neighboring shelfs:
         for i, id_ in enumerate(shelfs):
@@ -659,7 +651,7 @@ class Warehouse(gym.Env):
         for a in self.agents:
             self.grid[_LAYER_AGENTS, a.y, a.x] = a.id
 
-    def reset(self):
+    def reset(self, seed = None, options = None):
         Shelf.counter = 0
         Agent.counter = 0
         self._cur_inactive_steps = 0
@@ -698,7 +690,7 @@ class Warehouse(gym.Env):
             np.random.choice(self.shelfs, size=self.request_queue_size, replace=False)
         )
 
-        return tuple([self._make_obs(agent) for agent in self.agents])
+        return tuple([self._make_obs(agent) for agent in self.agents]), {}
         # for s in self.shelfs:
         #     self.grid[0, s.y, s.x] = 1
         # print(self.grid[0])
@@ -711,7 +703,6 @@ class Warehouse(gym.Env):
         for agent, action in zip(self.agents, actions):
             if self.msg_bits > 0:
                 agent.req_action = Action(action[0])
-                agent.message[:] = action[1:]
             else:
                 agent.req_action = Action(action)
 

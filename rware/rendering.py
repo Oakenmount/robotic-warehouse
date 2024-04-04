@@ -10,7 +10,7 @@ import sys
 import numpy as np
 import math
 import six
-from gym import error
+from gymnasium import error
 from rware.warehouse import Direction
 
 if "Apple" in sys.version:
@@ -120,8 +120,8 @@ class Viewer(object):
 
     def render(self, env, return_rgb_array=False):
         glClearColor(*_BACKGROUND_COLOR, 0)
-        self.window.clear()
         self.window.switch_to()
+        self.window.clear()
         self.window.dispatch_events()
 
         self._draw_grid()
@@ -140,115 +140,77 @@ class Viewer(object):
 
     def _draw_grid(self):
         batch = pyglet.graphics.Batch()
+        lines = []
         # VERTICAL LINES
         for r in range(self.rows + 1):
-            batch.add(
-                2,
-                gl.GL_LINES,
-                None,
-                (
-                    "v2f",
-                    (
-                        0,  # LEFT X
-                        (self.grid_size + 1) * r + 1,  # Y
-                        (self.grid_size + 1) * self.cols,  # RIGHT X
-                        (self.grid_size + 1) * r + 1,  # Y
-                    ),
-                ),
-                ("c3B", (*_GRID_COLOR, *_GRID_COLOR)),
+            l = pyglet.shapes.Line(
+                0, (self.grid_size + 1) * r + 1, (self.grid_size + 1) * self.cols, (self.grid_size + 1) * r + 1,
+                color=_GRID_COLOR, batch=batch
             )
+            lines.append(l)
 
         # HORIZONTAL LINES
         for c in range(self.cols + 1):
-            batch.add(
-                2,
-                gl.GL_LINES,
-                None,
-                (
-                    "v2f",
-                    (
-                        (self.grid_size + 1) * c + 1,  # X
-                        0,  # BOTTOM Y
-                        (self.grid_size + 1) * c + 1,  # X
-                        (self.grid_size + 1) * self.rows,  # TOP Y
-                    ),
-                ),
-                ("c3B", (*_GRID_COLOR, *_GRID_COLOR)),
+            args = ((self.grid_size + 1) * c + 1, 0, (self.grid_size + 1) * c + 1, (self.grid_size + 1) * self.rows)
+            l = pyglet.shapes.Line(
+                (self.grid_size + 1) * c + 1, 0, (self.grid_size + 1) * c + 1, (self.grid_size + 1) * self.rows,
+                color=_GRID_COLOR, batch=batch
             )
+            lines.append(l)
+            
         batch.draw()
 
     def _draw_shelfs(self, env):
         batch = pyglet.graphics.Batch()
-
+        shelf_rects = []
+        
         for shelf in env.shelfs:
             x, y = shelf.x, shelf.y
             y = self.rows - y - 1  # pyglet rendering is reversed
-            shelf_color = (
-                _SHELF_REQ_COLOR if shelf in env.request_queue else _SHELF_COLOR
+            shelf_color = _SHELF_REQ_COLOR if shelf in env.request_queue else _SHELF_COLOR
+            rec = pyglet.shapes.Rectangle(
+                (self.grid_size + 1) * x + _SHELF_PADDING + 1,
+                (self.grid_size + 1) * y + _SHELF_PADDING + 1,
+                self.grid_size - 2 * _SHELF_PADDING,
+                self.grid_size - 2 * _SHELF_PADDING,
+                color=shelf_color,
+                batch=batch
             )
-
-            batch.add(
-                4,
-                gl.GL_QUADS,
-                None,
-                (
-                    "v2f",
-                    (
-                        (self.grid_size + 1) * x + _SHELF_PADDING + 1,  # TL - X
-                        (self.grid_size + 1) * y + _SHELF_PADDING + 1,  # TL - Y
-                        (self.grid_size + 1) * (x + 1) - _SHELF_PADDING,  # TR - X
-                        (self.grid_size + 1) * y + _SHELF_PADDING + 1,  # TR - Y
-                        (self.grid_size + 1) * (x + 1) - _SHELF_PADDING,  # BR - X
-                        (self.grid_size + 1) * (y + 1) - _SHELF_PADDING,  # BR - Y
-                        (self.grid_size + 1) * x + _SHELF_PADDING + 1,  # BL - X
-                        (self.grid_size + 1) * (y + 1) - _SHELF_PADDING,  # BL - Y
-                    ),
-                ),
-                ("c3B", 4 * shelf_color),
-            )
+            shelf_rects.append(rec)
         batch.draw()
 
     def _draw_goals(self, env):
         batch = pyglet.graphics.Batch()
+        rects = []
 
         for goal in env.goals:
             x, y = goal
             y = self.rows - y - 1  # pyglet rendering is reversed
-            batch.add(
-                4,
-                gl.GL_QUADS,
-                None,
-                (
-                    "v2f",
-                    (
-                        (self.grid_size + 1) * x + 1,  # TL - X
-                        (self.grid_size + 1) * y + 1,  # TL - Y
-                        (self.grid_size + 1) * (x + 1),  # TR - X
-                        (self.grid_size + 1) * y + 1,  # TR - Y
-                        (self.grid_size + 1) * (x + 1),  # BR - X
-                        (self.grid_size + 1) * (y + 1),  # BR - Y
-                        (self.grid_size + 1) * x + 1,  # BL - X
-                        (self.grid_size + 1) * (y + 1),  # BL - Y
-                    ),
-                ),
-                ("c3B", 4 * _GOAL_COLOR),
+
+            rect = pyglet.shapes.Rectangle(
+                (self.grid_size + 1) * x + 1,
+                (self.grid_size + 1) * y + 1,
+                self.grid_size,
+                self.grid_size,
+                color=_GOAL_COLOR,
+                batch=batch
             )
+            rects.append(rect)
         batch.draw()
 
     def _draw_agents(self, env):
-        agents = []
         batch = pyglet.graphics.Batch()
-
+        circs = []
+        lines = []
+        
         radius = self.grid_size / 3
-
         resolution = 6
 
         for agent in env.agents:
-
             col, row = agent.x, agent.y
             row = self.rows - row - 1  # pyglet rendering is reversed
 
-            # make a circle
+            # Draw agent circle
             verts = []
             for i in range(resolution):
                 angle = 2 * math.pi * i / resolution
@@ -265,54 +227,39 @@ class Viewer(object):
                     + 1
                 )
                 verts += [x, y]
-            circle = pyglet.graphics.vertex_list(resolution, ("v2f", verts))
-
-            draw_color = _AGENT_LOADED_COLOR if agent.carrying_shelf else _AGENT_COLOR
-
-            glColor3ub(*draw_color)
-            circle.draw(GL_POLYGON)
-
-        for agent in env.agents:
-
-            col, row = agent.x, agent.y
-            row = self.rows - row - 1  # pyglet rendering is reversed
-
-            batch.add(
-                2,
-                gl.GL_LINES,
-                None,
-                (
-                    "v2f",
-                    (
-                        (self.grid_size + 1) * col
-                        + self.grid_size // 2
-                        + 1,  # CENTER X
-                        (self.grid_size + 1) * row
-                        + self.grid_size // 2
-                        + 1,  # CENTER Y
-                        (self.grid_size + 1) * col
-                        + self.grid_size // 2
-                        + 1
-                        + (
-                            radius if agent.dir.value == Direction.RIGHT.value else 0
-                        )  # DIR X
-                        + (
-                            -radius if agent.dir.value == Direction.LEFT.value else 0
-                        ),  # DIR X
-                        (self.grid_size + 1) * row
-                        + self.grid_size // 2
-                        + 1
-                        + (
-                            radius if agent.dir.value == Direction.UP.value else 0
-                        )  # DIR Y
-                        + (
-                            -radius if agent.dir.value == Direction.DOWN.value else 0
-                        ),  # DIR Y
-                    ),
-                ),
-                ("c3B", (*_AGENT_DIR_COLOR, *_AGENT_DIR_COLOR)),
+            circle = pyglet.shapes.Circle(
+                x=(self.grid_size + 1) * col + self.grid_size // 2 + 1,
+                y=(self.grid_size + 1) * row + self.grid_size // 2 + 1,
+                radius=radius,
+                color=_AGENT_LOADED_COLOR if agent.carrying_shelf else _AGENT_COLOR,
+                batch=batch
             )
+            circs.append(circle)
+
+            # Draw agent direction line
+            end_x = (self.grid_size + 1) * col + self.grid_size // 2 + 1
+            end_y = (self.grid_size + 1) * row + self.grid_size // 2 + 1
+            if agent.dir.value == Direction.UP.value:
+                end_y += radius
+            elif agent.dir.value == Direction.DOWN.value:
+                end_y -= radius
+            elif agent.dir.value == Direction.LEFT.value:
+                end_x -= radius
+            elif agent.dir.value == Direction.RIGHT.value:
+                end_x += radius
+
+            line = pyglet.shapes.Line(
+                (self.grid_size + 1) * col + self.grid_size // 2 + 1,
+                (self.grid_size + 1) * row + self.grid_size // 2 + 1,
+                end_x,
+                end_y,
+                color=_AGENT_DIR_COLOR,
+                batch=batch
+            )
+            lines.append(line)
+
         batch.draw()
+
 
     def _draw_badge(self, row, col, level):
         resolution = 6

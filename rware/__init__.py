@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 from .warehouse import Warehouse, RewardType, Action, ObserationType
 import itertools
 
@@ -52,7 +52,6 @@ def image_registration():
                 "shelf_rows": _sizes[size][0],
                 "shelf_columns": _sizes[size][1],
                 "n_agents": agents,
-                "msg_bits": 0,
                 "sensor_range": 1,
                 "request_queue_size": int(agents * _difficulty[diff]),
                 "max_inactivity_steps": None,

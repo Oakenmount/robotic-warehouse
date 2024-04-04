@@ -1,8 +1,8 @@
-import gym
+import gymnasium as gym
 import numpy as np
 from rware import Action
-from gym import spaces
-from gym import ObservationWrapper
+from gymnasium import spaces
+from gymnasium import ObservationWrapper
 
 import math
 
