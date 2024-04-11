@@ -836,7 +836,8 @@ class Warehouse(gym.Env):
 
         new_obs = tuple([self._make_obs(agent) for agent in self.agents])
         info = {}
-        return new_obs, list(rewards), dones, info
+        # obs, reward, terminated, trucated, inf
+        return new_obs, list(rewards), dones, self.n_agents * [False], info
 
     def render(self, mode="human"):
         if not self.renderer:
