@@ -697,7 +697,7 @@ class Warehouse(gym.Env):
 
     def step(
         self, actions: List[Action]
-    ) -> Tuple[List[np.ndarray], List[float], List[bool], Dict]:
+    ) -> Tuple[List[np.ndarray], List[float], List[bool], List[bool], Dict]:
         assert len(actions) == len(self.agents)
 
         for agent, action in zip(self.agents, actions):
@@ -826,18 +826,21 @@ class Warehouse(gym.Env):
             self._cur_inactive_steps += 1
         self._cur_steps += 1
 
-        if (
-            self.max_inactivity_steps
-            and self._cur_inactive_steps >= self.max_inactivity_steps
-        ) or (self.max_steps and self._cur_steps >= self.max_steps):
-            dones = self.n_agents * [True]
+        
+
+        if (self.max_inactivity_steps and self._cur_inactive_steps >= self.max_inactivity_steps):
+            terminated = self.n_agents * [True]
         else:
-            dones = self.n_agents * [False]
+            terminated = self.n_agents * [False]
+        if (self.max_steps and self._cur_steps >= self.max_steps):
+            truncated = self.n_agents * [True]
+        else:
+            truncated = self.n_agents * [False]
 
         new_obs = tuple([self._make_obs(agent) for agent in self.agents])
         info = {}
         # obs, reward, terminated, trucated, inf
-        return new_obs, list(rewards), dones, self.n_agents * [False], info
+        return new_obs, list(rewards), terminated, truncated, info
 
     def render(self, mode="human"):
         if not self.renderer:
